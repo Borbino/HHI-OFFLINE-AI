@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HD현대중공업 기술교육원 AI</title>
+    <style>
+        @font-face { font-family: 'HDFont'; src: url('/static/HD-Light OTF.otf') format('opentype'); font-weight: 300; }
+        @font-face { font-family: 'HDFont'; src: url('/static/HD-Medium OTF.otf') format('opentype'); font-weight: 500; }
+        @font-face { font-family: 'HDFont'; src: url('/static/HD-Bold OTF.otf') format('opentype'); font-weight: 700; }
+
+        :root { --sidebar-bg: #F8FAFC; --main-bg: #FFFFFF; --primary: #002A5C; --accent: #00823F; --text: #1E293B; --border: #E2E8F0; }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'HDFont', -apple-system, sans-serif; }
+        body { display: flex; height: 100vh; color: var(--text); background-color: var(--main-bg); overflow: hidden; }
+
+        /* 클릭 애니메이션 (모든 인터랙티브 버튼) */
+        .btn-anim { transition: transform 0.1s ease-in-out, background-color 0.2s; cursor: pointer; }
+        .btn-anim:active { transform: scale(0.92); opacity: 0.8; }
+
+        aside { width: 260px; background: var(--sidebar-bg); border-right: 1px solid var(--border); display: flex; flex-direction: column; z-index: 10; }
+        .sidebar-header { padding: 20px 16px; }
+        .new-chat-btn { background: var(--primary); color: white; width: 100%; padding: 12px; border-radius: 20px; border: none; font-weight: 700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .new-chat-btn:hover { background: #001f44; }
+
+        .session-list { flex: 1; overflow-y: auto; padding: 0 16px; margin-bottom: 20px; }
+        .session-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; border-radius: 8px; font-size: 0.95rem; color: #475569; cursor: pointer; margin-bottom: 4px; font-weight: 500; transition: background 0.2s; }
+        .session-item:hover, .session-item.active { background: #E2E8F0; color: var(--primary); font-weight: 700; }
+
+        /* '...' 없이 깔끔하게 자르기 */
+        .session-title { white-space: nowrap; overflow: hidden; text-overflow: clip; flex: 1; margin-right: 8px; }
+
+        .session-actions { display: none; gap: 4px; }
+        .session-item:hover .session-actions { display: flex; }
+        .session-actions button { background: none; border: none; font-size: 0.9rem; padding: 2px; }
+        .session-actions .edit-btn { color: #EAB308; }
+        .session-actions .del-btn { color: #EF4444; }
+
+        .menu-title { font-size: 0.8rem; color: #94A3B8; font-weight: 700; margin: 12px 0 8px 8px; text-transform: uppercase; }
+        .tools-area { padding: 0 16px 20px 16px; border-top: 1px solid var(--border); }
+        .tool-btn { background: transparent; border: 1px solid var(--border); width: 100%; padding: 10px; border-radius: 8px; display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 0.95rem; color: var(--text); font-weight: 500; }
+        .tool-btn:hover { background: white; }
+
+        .user-profile { padding: 12px 16px; background: #F1F5F9; border-top: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .user-info { display: flex; flex-direction: column; font-size: 0.85rem; }
+        .logout-btn { color: #EF4444; text-decoration: none; font-size: 0.85rem; font-weight: 700; }
+
+        main { flex: 1; display: flex; flex-direction: column; position: relative; height: 100vh; }
+        /* 채팅 여백 최적화: 좌우 10%, 상단 24px */
+        #chatContainer { flex: 1; overflow-y: auto; padding: 24px 10% 140px 10%; display: flex; flex-direction: column; gap: 20px; scroll-behavior: smooth; }
+
+        .msg-row { display: flex; gap: 14px; width: 100%; position: relative; }
+        /* 아바타 크기 확대 + crisp-edges */
+        .img-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: contain; flex-shrink: 0; border: 1px solid var(--border); background: white; image-rendering: crisp-edges; }
+        .sidebar-avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: contain; background: white; border: 1px solid var(--border); margin-right: 10px; image-rendering: crisp-edges; }
+
+        .msg-content { flex: 1; padding-top: 6px; }
+        .msg-name { font-weight: 700; font-size: 1rem; margin-bottom: 8px; color: var(--text); }
+        .msg-text { font-size: 1.05rem; line-height: 1.6; color: #334155; white-space: pre-wrap; word-break: break-all; font-weight: 300; }
+        .msg-text strong, .msg-text b { font-weight: 700; color: var(--primary); }
+
+        .msg-actions { position: absolute; top: 0; right: 0; display: none; gap: 8px; }
+        .msg-row:hover .msg-actions { display: flex; }
+        .msg-actions button { background: white; border: 1px solid var(--border); border-radius: 4px; padding: 4px; font-size: 0.8rem; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        .msg-actions button:hover { background: var(--border); }
+
+        /* 입력창: chatContainer와 동일한 좌우 비율 */
+        .input-wrapper { position: absolute; bottom: 24px; left: 10%; right: 10%; background: white; border: 1px solid var(--border); border-radius: 24px; padding: 10px 16px; display: flex; flex-direction: column; box-shadow: 0 4px 20px rgba(0,0,0,0.1); z-index: 20; }
+        #imagePreviewContainer { display: none; position: relative; margin-bottom: 12px; padding-left: 48px; }
+        #previewImg { max-height: 100px; border-radius: 8px; border: 1px solid var(--border); }
+        .remove-img-btn { position: absolute; top: -8px; left: 36px; background: #EF4444; color: white; border: none; border-radius: 50%; width: 24px; height: 24px; font-weight: bold; }
+
+        /* 높이와 패딩을 완벽히 일치시킨 강제 중앙 정렬 */
+        .input-controls { display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px; background: white; border: 1px solid var(--border); border-radius: 24px; padding: 6px 16px; box-shadow: 0 4px 10px rgba(0,0,0,0.05); box-sizing: border-box; }
+        .attach-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 0; padding: 0; background: none; border: none; font-size: 1.5rem; color: #64748B; flex-shrink: 0; }
+        .attach-btn:hover { color: var(--primary); }
+        textarea { flex: 1; height: 36px; min-height: 36px; max-height: 120px; margin: 0; padding: 6px 0; border: none; outline: none; resize: none; font-size: 1.05rem; background: transparent; line-height: 24px; box-sizing: border-box; overflow-y: hidden; }
+        .send-btn { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; margin: 0; padding: 0; border-radius: 50%; border: none; background: var(--primary); color: white; flex-shrink: 0; }
+        .send-btn:disabled { background: #CBD5E1; cursor: not-allowed; }
+
+        .loading-text { color: #00823F; font-size: 0.95rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .spinner { width: 16px; height: 16px; border: 3px solid #E2E8F0; border-top: 3px solid #00823F; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
+        /* 모달 기본 스타일 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999; justify-content: center; align-items: center; }
+        .modal-content { background: white; padding: 24px; border-radius: 12px; width: 1100px; max-width: 95vw; max-height: 85vh; overflow-y: auto; display: flex; flex-direction: column; }
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; border-bottom: 2px solid var(--border); padding-bottom: 8px; flex-shrink: 0; }
+        .close-btn { font-size: 1.5rem; font-weight: bold; color: #64748B; border: none; background: none; }
+        #modalBody { overflow-y: auto; flex: 1; }
+
+        table { width: 100%; border-collapse: collapse; font-size: 0.95rem; font-weight: 300; }
+        th, td { padding: 12px 10px; border-bottom: 1px solid var(--border); text-align: left; }
+        th { background: #F8FAFC; font-weight: 700; white-space: nowrap; }
+        .tr-clickable { transition: background 0.2s; cursor: pointer; }
+        .tr-clickable:hover { background-color: #E2E8F0; }
+
+        .action-btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.85rem; color: white; font-weight: 500; }
+        .btn-down { background: var(--primary); }
+        .btn-del { background: #EF4444; }
+        .btn-edit { background: #EAB308; }
+
+        #globalOverlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.8); z-index: 9999; justify-content: center; align-items: center; flex-direction: column; }
+        .big-spinner { width: 40px; height: 40px; border: 4px solid #E2E8F0; border-top: 4px solid #002A5C; border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 16px; }
+
+        /* 상세 대화 뷰어 스타일 */
+        .detail-msg { padding: 16px; border-radius: 12px; margin-bottom: 12px; font-size: 1.05rem; font-weight: 300; line-height: 1.6; }
+        .detail-user { background: #F8FAFC; border-left: 5px solid var(--primary); }
+        .detail-ai { background: #E6F4EA; border-left: 5px solid var(--accent); }
+    </style>
+</head>
+<body>
+    <div id="globalOverlay">
+        <div class="big-spinner"></div>
+        <h3 style="color: var(--primary); font-weight: 700;">파일 업로드 및 학습 중입니다...</h3>
+    </div>
+
+    <input type="file" id="universalAttachInput" accept=".pdf,.txt,.csv,.xlsx,.docx,image/png,image/jpeg,image/jpg" style="display: none;">
+
+    <!-- 일반 모달 -->
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="modalTitle" style="color: var(--primary);">시스템 정보</h2>
+                <button class="close-btn btn-anim" onclick="document.getElementById('modal').style.display='none'">&times;</button>
+            </div>
+            <div id="modalBody"></div>
+        </div>
+    </div>
+
+    <!-- 상세 대화 모달 -->
+    <div id="detailModal" class="modal" style="z-index: 1000;">
+        <div class="modal-content" style="width: 800px; max-height: 80vh;">
+            <div class="modal-header">
+                <h2 style="color: var(--primary);">선택한 대화 기록 전체보기</h2>
+                <button class="close-btn btn-anim" onclick="document.getElementById('detailModal').style.display='none'">&times;</button>
+            </div>
+            <div id="detailModalBody" style="overflow-y: auto; flex: 1; padding: 10px;"></div>
+        </div>
+    </div>
+
+    <aside>
+        <div class="sidebar-header">
+            <button class="new-chat-btn btn-anim" onclick="startNewSession()">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                새로운 대화
+            </button>
+        </div>
+
+        <div class="menu-title">최근 대화 기록</div>
+        <div class="session-list" id="sessionList"></div>
+
+        <div class="tools-area">
+            <div class="menu-title">시스템 도구</div>
+            <button class="tool-btn btn-anim" onclick="showFiles()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline></svg>
+                파일 자료실
+            </button>
+            {% if user.role == 'admin' %}
+            <button class="tool-btn btn-anim" onclick="showAdminLogs()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                사용 기록
+            </button>
+            <button class="tool-btn btn-anim" onclick="showUserManagement()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                사용자 관리
+            </button>
+            <button class="tool-btn btn-anim" id="forceSyncBtn" onclick="forceSyncZDrive()">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Z드라이브 강제 동기화
+            </button>
+            {% endif %}
+        </div>
+
+        <div class="user-profile">
+            <img src="{{ url_for('static', filename='user_avatar.png') }}" class="sidebar-avatar" onerror="this.style.display='none'">
+            <div class="user-info" style="flex: 1;">
+                <b>{{ user.name }} {{ user.rank }}</b>
+                <span style="color:#64748B">{{ '관리자' if user.role == 'admin' else '사용자' }}</span>
+            </div>
+            <a href="/logout" class="logout-btn btn-anim">로그아웃</a>
+        </div>
+    </aside>
+
+    <main>
+        <div id="chatContainer"></div>
+        <div class="input-wrapper">
+            <div id="imagePreviewContainer">
+                <button class="remove-img-btn btn-anim" onclick="removeChatImage()">×</button>
+                <img id="previewImg" src="">
+            </div>
+            <div class="input-controls">
+                <button class="attach-btn btn-anim" onclick="document.getElementById('universalAttachInput').click()" title="사진 및 문서 첨부">📋</button>
+                <textarea id="userInput" placeholder="메시지를 입력하세요. (Shift+Enter 줄바꿈)" oninput="this.style.height=''; this.style.height=this.scrollHeight+'px'"></textarea>
+                <button id="sendBtn" class="send-btn btn-anim" onclick="sendMessage()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const chatContainer = document.getElementById('chatContainer');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const sessionList = document.getElementById('sessionList');
+        const universalAttachInput = document.getElementById('universalAttachInput');
+        const currentUserName = "{{ user.name }} {{ user.rank }}";
+
+        let currentSessionId = 'sess_' + Date.now();
+        let globalLogs = [];
+        let attachedImageFile = null;
+        let isFirstMsgInSession = true;
+
+        window.onload = () => { loadSessions(); startNewSession(); };
+
+        userInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+                userInput.style.height = '44px';
+            }
+        });
+
+        universalAttachInput.addEventListener('change', async function(e) {
+            if (!this.files || !this.files.length) return;
+            const file = this.files[0];
+            const ext = file.name.split('.').pop().toLowerCase();
+            const imgExts = ['png', 'jpg', 'jpeg'];
+
+            if (imgExts.includes(ext)) {
+                attachedImageFile = file;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('previewImg').src = e.target.result;
+                    document.getElementById('imagePreviewContainer').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                if (!confirm(`[${file.name}]\n해당 파일을 시스템에 업로드하고 AI를 학습시키겠습니까?`)) {
+                    this.value = ''; return;
+                }
+                const formData = new FormData();
+                formData.append('file', file);
+                document.getElementById('globalOverlay').style.display = 'flex';
+                try {
+                    const res = await fetch('/upload', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    alert(res.ok ? data.message : `업로드 실패: ${data.error}`);
+                } catch(e) { alert("서버 연결에 실패했습니다."); }
+                finally { document.getElementById('globalOverlay').style.display = 'none'; this.value = ''; }
+            }
+        });
+
+        function removeChatImage() {
+            attachedImageFile = null;
+            universalAttachInput.value = '';
+            document.getElementById('imagePreviewContainer').style.display = 'none';
+            document.getElementById('previewImg').src = '';
+        }
+
+        function startNewSession() {
+            currentSessionId = 'sess_' + Date.now();
+            isFirstMsgInSession = true;
+            chatContainer.innerHTML = '';
+            appendMsg(-1, 'ai', `안녕하세요, ${currentUserName}님. HD현대중공업 기술교육원 LLM System 입니다.<br>무엇을 도와드릴까요?`);
+            document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+        }
+
+        async function loadSessions() {
+            const res = await fetch('/api/sessions');
+            const data = await res.json();
+            sessionList.innerHTML = data.map(s => `
+                <div class="session-item" onclick="loadHistory('${s.session_id}', event)">
+                    <div class="session-title">💬 ${s.title}</div>
+                    <div class="session-actions">
+                        <button class="edit-btn btn-anim" onclick="editSessionTitle('${s.session_id}', '${s.title.replace(/'/g, "\\'")}', event)" title="이름 직접 변경">✏️</button>
+                        <button class="del-btn btn-anim" onclick="deleteSession('${s.session_id}', event)" title="대화 삭제">🗑️</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        async function editSessionTitle(sessId, oldTitle, event) {
+            event.stopPropagation();
+            const newTitle = prompt("대화명을 변경하세요:", oldTitle);
+            if (newTitle && newTitle.trim() !== "" && newTitle !== oldTitle) {
+                await fetch('/api/sessions/update', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({session_id: sessId, title: newTitle})
+                });
+                loadSessions();
+            }
+        }
+
+        async function deleteSession(sessId, event) {
+            event.stopPropagation();
+            if (!confirm("이 대화 기록을 삭제하시겠습니까?")) return;
+            await fetch('/api/sessions/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({session_id: sessId})
+            });
+            if (currentSessionId === sessId) startNewSession();
+            loadSessions();
+        }
+
+        async function loadHistory(sessId, event) {
+            if (event) {
+                document.querySelectorAll('.session-item').forEach(el => el.classList.remove('active'));
+                event.currentTarget.classList.add('active');
+            }
+            currentSessionId = sessId;
+            isFirstMsgInSession = false;
+            chatContainer.innerHTML = '';
+            const res = await fetch('/api/history', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({session_id: sessId})
+            });
+            const data = await res.json();
+            data.forEach(msg => appendMsg(msg[0], msg[1], msg[2]));
+        }
+
+        async function editMsgInline(msgId, el) {
+            const newText = prompt("수정할 내용을 입력하세요:", el.innerText);
+            if (newText && newText !== el.innerText) {
+                await fetch('/api/chat/edit', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({id: msgId, text: newText})
+                });
+                el.innerHTML = formatText(newText);
+                loadSessions();
+            }
+        }
+
+        async function delMsgInline(msgId, rowEl) {
+            if (!confirm("이 메시지를 삭제하시겠습니까?")) return;
+            await fetch('/api/chat/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: msgId})
+            });
+            rowEl.remove();
+        }
+
+        async function showFiles() {
+            const res = await fetch('/api/files');
+            const files = await res.json();
+            const isAdmin = {{ 'true' if user.role == 'admin' else 'false' }};
+            document.getElementById('modalTitle').innerText = '파일 자료실';
+            document.getElementById('modalBody').innerHTML = `
+                <table>
+                    <tr><th>파일명 (원본)</th><th style="width:160px;">작업</th></tr>
+                    ${files.map(f => `<tr>
+                        <td>📄 <b style="color:var(--primary);">${f}</b></td>
+                        <td>
+                            <a href="/download/${f}" target="_blank"><button class="action-btn btn-down btn-anim">다운로드</button></a>
+                            ${isAdmin ? `<button class="action-btn btn-del btn-anim" style="margin-left:4px;" onclick="adminDeleteFile('${f}')">삭제</button>` : ''}
+                        </td>
+                    </tr>`).join('')}
+                </table>${!files.length ? '<p style="padding:10px;">파일이 없습니다.</p>' : ''}`;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        async function adminDeleteFile(filename) {
+            if (!confirm(`[경고] '${filename}' 파일을 정말 삭제하시겠습니까?\n삭제 후 시스템이 재학습 합니다.`)) return;
+            await fetch('/api/admin/delete_file', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({filename: filename})
+            });
+            showFiles();
+        }
+
+        async function showAdminLogs() {
+            const res = await fetch('/api/admin/logs');
+            globalLogs = await res.json();
+            const roles = [...new Set(globalLogs.map(l => l.role_display))];
+
+            document.getElementById('modalTitle').innerText = '사용 기록';
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom: 16px;">
+                    <label style="font-weight: 700; color: var(--primary);">작성자 필터: </label>
+                    <select id="logFilter" onchange="renderLogs(this.value)" style="padding:6px; border-radius:4px; font-family:'HDFont',sans-serif; font-size:0.95rem;">
+                        <option value="">전체 보기</option>
+                        ${roles.map(r => `<option value="${r}">${r}</option>`).join('')}
+                    </select>
+                    <span style="font-size:0.9rem; color:#64748B; margin-left:10px; font-weight:700;">💡 행을 클릭하면 대화 상세 내용을 볼 수 있습니다.</span>
+                </div>
+                <div id="logTableContainer"></div>
+            `;
+            renderLogs('');
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function renderLogs(filterRole) {
+            const filtered = filterRole ? globalLogs.filter(l => l.role_display === filterRole) : globalLogs;
+            const rowsHtml = filtered.map(l => {
+                const t = l.time || '';
+                const formattedTime = t.length >= 16
+                    ? t.substring(2,4) + '.' + t.substring(5,7) + '.' + t.substring(8,10) + ' ' + t.substring(11,16)
+                    : t;
+                const hasSess = l.sess_id ? true : false;
+                const clickHandler = hasSess
+                    ? `onclick="showLogDetail('${l.emp_id}', '${l.sess_id}')"`
+                    : '';
+                return `<tr class="${hasSess ? 'tr-clickable' : ''}" ${clickHandler}>
+                    <td style="white-space:nowrap;">${formattedTime}</td>
+                    <td>${l.emp_id}</td>
+                    <td style="white-space:nowrap;"><b style="color:var(--primary);">${l.role_display}</b></td>
+                    <td>${(l.msg || '').substring(0,50)}${(l.msg || '').length > 50 ? '…' : ''}</td>
+                    <td><button class="action-btn btn-del btn-anim" onclick="event.stopPropagation(); adminDeleteMsg(${l.id})">삭제</button></td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('logTableContainer').innerHTML = `
+                <table>
+                    <tr><th style="white-space:nowrap;">시간</th><th style="white-space:nowrap;">계정</th><th style="white-space:nowrap;">작성자</th><th>내용/파일명</th><th style="white-space:nowrap;">관리</th></tr>
+                    ${rowsHtml}
+                </table>`;
+        }
+
+        async function showLogDetail(empId, sessId) {
+            const res = await fetch('/api/admin/log_detail', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({emp_id: empId, session_id: sessId})
+            });
+            const history = await res.json();
+
+            let html = '';
+            history.forEach(msg => {
+                if (msg[1] === 'title') return;
+                const roleCls = msg[1] === 'user' ? 'detail-user' : 'detail-ai';
+                const roleName = msg[1] === 'user' ? '사용자' : 'AI';
+                html += `<div class="detail-msg ${roleCls}"><b>${roleName}</b><br><br>${formatText(msg[2])}</div>`;
+            });
+            if (!html) html = '<p style="padding:16px;color:#94A3B8;">대화 기록이 없습니다.</p>';
+
+            document.getElementById('detailModalBody').innerHTML = html;
+            document.getElementById('detailModal').style.display = 'flex';
+        }
+
+        async function adminDeleteMsg(msgId) {
+            if (!confirm("이 대화 기록을 삭제하시겠습니까?")) return;
+            await fetch('/api/chat/delete', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({id: msgId})
+            });
+            showAdminLogs();
+        }
+
+        async function forceSyncZDrive() {
+            if (!confirm("Z드라이브의 문서를 즉시 스캔하고 업데이트하시겠습니까?")) return;
+            const btn = document.getElementById('forceSyncBtn');
+            btn.disabled = true;
+            btn.style.opacity = '0.5';
+            btn.querySelector('svg').style.animation = 'spin 1s linear infinite';
+            const origText = btn.childNodes[btn.childNodes.length - 1].textContent;
+            btn.childNodes[btn.childNodes.length - 1].textContent = ' 동기화 진행 중...';
+            try {
+                const res = await fetch('/admin/force_sync', { method: 'POST' });
+                const data = await res.json();
+                alert(res.ok ? '✅ 완료: ' + data.message : '❌ 에러: ' + data.error);
+            } catch (e) {
+                alert('통신 에러가 발생했습니다.');
+            } finally {
+                btn.disabled = false;
+                btn.style.opacity = '1';
+                btn.querySelector('svg').style.animation = '';
+                btn.childNodes[btn.childNodes.length - 1].textContent = origText;
+            }
+        }
+
+        async function showUserManagement() {
+            const res = await fetch('/api/admin/users');
+            const users = await res.json();
+            document.getElementById('modalTitle').innerText = '사용자 관리';
+            document.getElementById('modalBody').innerHTML = `
+                <div style="margin-bottom:20px; padding:16px; background:#F8FAFC; border:1px solid var(--border); border-radius:8px;">
+                    <b style="color:var(--primary); font-size:1.05rem;">새 계정 추가/수정</b><br><br>
+                    <input type="text" id="u_emp_id" placeholder="사번 (ID)" style="padding:8px; border-radius:4px; border:1px solid #ccc; margin:4px;">
+                    <input type="text" id="u_pw" placeholder="비밀번호" style="padding:8px; border-radius:4px; border:1px solid #ccc; margin:4px;">
+                    <input type="text" id="u_name" placeholder="이름" style="padding:8px; width:100px; border-radius:4px; border:1px solid #ccc; margin:4px;">
+                    <input type="text" id="u_rank" placeholder="직급" style="padding:8px; width:100px; border-radius:4px; border:1px solid #ccc; margin:4px;">
+                    <select id="u_role" style="padding:8px; border-radius:4px; margin:4px;"><option value="user">사용자</option><option value="admin">관리자</option></select>
+                    <button class="action-btn btn-down btn-anim" style="padding:8px 16px;" onclick="upsertUser()">저장</button>
+                </div>
+                <table>
+                    <tr><th>사번</th><th>이름</th><th>직급</th><th>권한</th><th style="white-space:nowrap;">관리</th></tr>
+                    ${users.map(u => `<tr>
+                        <td>${u.emp_id}</td><td><b>${u.name}</b></td><td>${u.rank}</td><td>${u.role}</td>
+                        <td style="white-space:nowrap;">
+                            <button class="action-btn btn-edit btn-anim" onclick="fillUserForm('${u.emp_id}','${u.password}','${u.name}','${u.rank}','${u.role}')">수정</button>
+                            <button class="action-btn btn-del btn-anim" onclick="deleteUser('${u.emp_id}')">삭제</button>
+                        </td>
+                    </tr>`).join('')}
+                </table>
+            `;
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function fillUserForm(id, pw, name, rank, role) {
+            document.getElementById('u_emp_id').value = id;
+            document.getElementById('u_pw').value = pw;
+            document.getElementById('u_name').value = name;
+            document.getElementById('u_rank').value = rank;
+            document.getElementById('u_role').value = role;
+        }
+
+        async function upsertUser() {
+            const data = {
+                emp_id: document.getElementById('u_emp_id').value,
+                password: document.getElementById('u_pw').value,
+                name: document.getElementById('u_name').value,
+                rank: document.getElementById('u_rank').value,
+                role: document.getElementById('u_role').value
+            };
+            if (!data.emp_id) return alert('사번을 입력하세요.');
+            await fetch('/api/admin/users', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify(data)
+            });
+            showUserManagement();
+        }
+
+        async function deleteUser(emp_id) {
+            if (emp_id === 'A544364') return alert('최고 관리자 계정은 삭제할 수 없습니다.');
+            if (!confirm("이 계정을 삭제하시겠습니까?")) return;
+            await fetch('/api/admin/users', {
+                method: 'DELETE',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({emp_id: emp_id})
+            });
+            showUserManagement();
+        }
+
+        function formatText(text) {
+            let html = (text || '').replace(/!\[image\]\((.*?)\)/g, '<img src="$1" style="max-width:250px; border-radius:8px; border:1px solid #E2E8F0; display:block; margin-bottom:8px;">');
+            return html.replace(/\n/g, '<br>');
+        }
+
+        function appendMsg(msgId, role, text) {
+            if (role === 'title') return null;
+            const isUser = role === 'user';
+            const row = document.createElement('div');
+            row.className = `msg-row ${role}`;
+            if (msgId > 0) row.setAttribute('data-id', msgId);
+
+            const avatarSrc = isUser
+                ? "{{ url_for('static', filename='user_avatar.png') }}"
+                : "{{ url_for('static', filename='ai_avatar.png') }}";
+
+            const actionsHtml = msgId > 0 ? `
+                <div class="msg-actions">
+                    <button class="btn-anim" onclick="editMsgInline(${msgId}, this.parentElement.previousElementSibling.querySelector('.msg-text'))" title="메시지 수정">✏️</button>
+                    <button class="btn-anim" onclick="delMsgInline(${msgId}, this.closest('.msg-row'))" title="메시지 삭제">🗑️</button>
+                </div>
+            ` : '';
+
+            row.innerHTML = `
+                <img src="${avatarSrc}" class="img-avatar" onerror="this.style.display='none'">
+                <div class="msg-content">
+                    <div class="msg-name">${isUser ? currentUserName : 'HD현대중공업 기술교육원'}</div>
+                    <div class="msg-text">${formatText(text)}</div>
+                </div>
+                ${actionsHtml}
+            `;
+            chatContainer.appendChild(row);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            return row.querySelector('.msg-text');
+        }
+
+        async function sendMessage() {
+            const msg = userInput.value.trim();
+            if (!msg && !attachedImageFile) return;
+
+            const formData = new FormData();
+            formData.append('message', msg);
+            formData.append('session_id', currentSessionId);
+            if (attachedImageFile) formData.append('image', attachedImageFile);
+
+            let tempDisplayMsg = msg;
+            if (attachedImageFile) {
+                const imgUrl = URL.createObjectURL(attachedImageFile);
+                tempDisplayMsg = `![image](${imgUrl})\n` + msg;
+            }
+            appendMsg(-1, 'user', tempDisplayMsg);
+
+            userInput.value = '';
+            userInput.style.height = '44px';
+            removeChatImage();
+            sendBtn.disabled = true;
+
+            const target = appendMsg(-1, 'ai', '<span class="loading-text"><div class="spinner"></div> 답변 생성 중... (잠시 대기해 주세요)</span>');
+
+            const shouldGenTitle = isFirstMsgInSession;
+            if (isFirstMsgInSession) isFirstMsgInSession = false;
+
+            try {
+                // AbortController를 이용해 120잘 타임아웃 설정 (대기열 병목 대비)
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 120000);
+
+                const res = await fetch('/chat', { method: 'POST', body: formData, signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!res.ok) throw new Error(`서버 응답 오류 (${res.status})`);
+
+                const reader = res.body.getReader();
+                const decoder = new TextDecoder('utf-8');
+                let isFirstChunk = true;
+
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) break;
+                    const chunk = decoder.decode(value, {stream: true});
+                    if (isFirstChunk) {
+                        if (chunk.trim() === '') continue;
+                        target.innerHTML = '';
+                        isFirstChunk = false;
+                    }
+                    target.innerHTML += formatText(chunk);
+                    chatContainer.scrollTop = chatContainer.scrollHeight;
+                }
+
+                await loadHistory(currentSessionId, null);
+                loadSessions();
+
+                // AI 답변 완료 후 백그라운드에서 타이틀 추론 (UX 저하 없음)
+                if (shouldGenTitle && msg) {
+                    fetch('/api/sessions/gen_title', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({session_id: currentSessionId, message: msg})
+                    }).then(() => loadSessions());
+                }
+
+            } catch (e) {
+                let errMsg = e.name === 'AbortError'
+                    ? '요청 시간이 초과되었습니다 (대기열 지연). 다시 시도해 주세요.'
+                    : e.message;
+                target.innerHTML = `<span style="color: #EF4444; font-weight: bold;">[시스템 오류] ${errMsg}</span>`;
+            } finally {
+                sendBtn.disabled = false;
+                sendBtn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
+                userInput.focus();
+            }
+        }
+    </script>
+</body>
+</html>

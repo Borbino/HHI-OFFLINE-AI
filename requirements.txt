@@ -1,0 +1,6 @@
+llama-cpp-python==0.2.75
+langchain==0.2.0
+langchain-community==0.2.0
+pypdf==4.2.0
+faiss-cpu==1.8.0
+Flask==3.0.3

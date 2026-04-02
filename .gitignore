@@ -1,0 +1,5 @@
+models/
+data/
+local_embeddings/
+__pycache__/
+.venv/
